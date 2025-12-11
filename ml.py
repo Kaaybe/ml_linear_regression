@@ -6,6 +6,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
+# --- 1. Initialize Session State ---
+# This ensures model and metrics are defined on initial script run.
+if 'model' not in st.session_state:
+    st.session_state.model = None
+if 'metrics' not in st.session_state:
+    st.session_state.metrics = None
+    
 # --- Configuration and Setup ---
 st.set_page_config(
     page_title="Streamlit Linear Regression App",
@@ -24,7 +31,7 @@ def generate_data(n_samples=100, slope=2, intercept=5, noise_level=10):
     return df
 
 @st.cache_resource
-def train_model(X_train, y_train):
+def train_linear_model(X_train, y_train):
     """Trains the Linear Regression model."""
     model = LinearRegression()
     model.fit(X_train, y_train)
@@ -56,34 +63,44 @@ def main():
     )
     
     # --- Main Content Area ---
-    
     st.header("1. Generated Data")
     st.dataframe(df.head())
-    
     st.write(f"Data Split: {len(X_train)} training samples, {len(X_test)} testing samples.")
 
     # --- Model Training ---
     st.header("2. Model Training")
-    if st.button("Train Linear Regression Model"):
-        # Train the model (using st.cache_resource to prevent re-training on every interaction)
-        model = train_model(X_train, y_train)
-        
-        # --- Model Evaluation ---
+    
+    # Use a callback function to handle model training and store results
+    def handle_train_click():
+        model = train_linear_model(X_train, y_train)
         y_pred = model.predict(X_test)
         
-        mse = mean_squared_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        
-        if st.button("Train Linear Regression Model"):
-    # ... Training and Evaluation code is here ...
-    model = train_model(X_train, y_train)
+        # Store model and metrics in session state
+        st.session_state.model = model
+        st.session_state.metrics = {
+            'mse': mean_squared_error(y_test, y_pred),
+            'r2': r2_score(y_test, y_pred),
+            'coef': model.coef_[0][0] # Store the coefficient directly
+        }
 
-    col1.metric("Model Slope (Coefficient)", f"{model.coef_[0][0]:.3f}")
+    # The button now calls the handler function
+    st.button(
+        "Train Linear Regression Model",
+        on_click=handle_train_click
+    )
     
+    # --- Model Evaluation (Runs on every rerun if model exists) ---
+    if st.session_state.model is not None:
+        st.success("Model Training Complete!")
+        
+        # Access metrics from session state, which is guaranteed to exist
+        metrics = st.session_state.metrics
+        
         col1, col2, col3 = st.columns(3)
-        col1.metric("Model Slope (Coefficient)", f"{model.coef_[0][0]:.3f}")
-        col2.metric("Mean Squared Error (MSE)", f"{mse:.3f}")
-        col3.metric("R-squared (R²)", f"{r2:.3f}")
+        # Access the pre-stored float value, avoiding the IndexError
+        col1.metric("Model Slope (Coefficient)", f"{metrics['coef']:.3f}")
+        col2.metric("Mean Squared Error (MSE)", f"{metrics['mse']:.3f}")
+        col3.metric("R-squared (R²)", f"{metrics['r2']:.3f}")
 
         # --- Visualization ---
         st.header("3. Model Visualization")
@@ -95,8 +112,12 @@ def main():
         # Plot testing data
         ax.scatter(X_test, y_test, color='green', label='Test Data (Actual)')
         
+        # Predict on the full range (X) for the regression line
+        X_all = df[['Feature_X']]
+        y_fit = st.session_state.model.predict(X_all)
+        
         # Plot regression line
-        ax.plot(X, model.predict(X), color='red', linewidth=2, label='Regression Line')
+        ax.plot(X_all, y_fit, color='red', linewidth=2, label='Regression Line') 
         
         ax.set_xlabel('Feature X')
         ax.set_ylabel('Target Y')
@@ -108,15 +129,14 @@ def main():
         st.markdown("---")
         st.header("4. Make a Prediction")
         
-        # Input for prediction
         new_x = st.slider("Select X value for prediction", 0, 100, 50)
         
-        # Predict based on the slider value
-        prediction = model.predict(np.array([[new_x]]))[0][0]
+        # Predict based on the slider value using the model from session state
+        prediction = st.session_state.model.predict(np.array([[new_x]]))[0][0]
         st.info(f"For X = **{new_x}**, the predicted Y value is **{prediction:.3f}**")
 
     else:
-        st.info("Click the 'Train Linear Regression Model' button above to start the analysis.")
+        st.info("Click the 'Train Linear Regression Model' button to train and evaluate the model.")
 
 
 if __name__ == "__main__":
