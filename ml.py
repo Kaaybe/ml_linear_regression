@@ -7,7 +7,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
 # --- 1. Initialize Session State ---
-# This ensures model and metrics are defined on initial script run.
 if 'model' not in st.session_state:
     st.session_state.model = None
 if 'metrics' not in st.session_state:
@@ -24,10 +23,11 @@ st.set_page_config(
 def generate_data(n_samples=100, slope=2, intercept=5, noise_level=10):
     """Generates synthetic linear data."""
     np.random.seed(42)
+    # Ensure X is 2D for scikit-learn consistency: (n_samples, 1)
     X = np.linspace(0, 100, n_samples).reshape(-1, 1)
     y = slope * X + intercept + np.random.randn(n_samples, 1) * noise_level
     df = pd.DataFrame(X, columns=['Feature_X'])
-    df['Target_Y'] = y
+    df['Target_Y'] = y.flatten() # Flatten y to prevent shape issues later
     return df
 
 @st.cache_resource
@@ -58,6 +58,7 @@ def main():
     # --- Data Preparation ---
     X = df[['Feature_X']]
     y = df['Target_Y']
+    # y is now a 1D series, which is usually preferred for regression targets
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=42
     )
@@ -70,7 +71,7 @@ def main():
     # --- Model Training ---
     st.header("2. Model Training")
     
-    # Use a callback function to handle model training and store results
+    # Callback function to handle model training and store results
     def handle_train_click():
         model = train_linear_model(X_train, y_train)
         y_pred = model.predict(X_test)
@@ -80,8 +81,12 @@ def main():
         st.session_state.metrics = {
             'mse': mean_squared_error(y_test, y_pred),
             'r2': r2_score(y_test, y_pred),
-            'coef': model.coef_[0][0] # Store the coefficient directly
+            # FIXED: Use [0] to access the single coefficient, as it is a 1D array.
+            'coef': model.coef_[0]
         }
+        # Optional: Force a rerun to display results immediately after training
+        st.experimental_rerun()
+
 
     # The button now calls the handler function
     st.button(
@@ -97,7 +102,6 @@ def main():
         metrics = st.session_state.metrics
         
         col1, col2, col3 = st.columns(3)
-        # Access the pre-stored float value, avoiding the IndexError
         col1.metric("Model Slope (Coefficient)", f"{metrics['coef']:.3f}")
         col2.metric("Mean Squared Error (MSE)", f"{metrics['mse']:.3f}")
         col3.metric("R-squared (R²)", f"{metrics['r2']:.3f}")
@@ -117,7 +121,7 @@ def main():
         y_fit = st.session_state.model.predict(X_all)
         
         # Plot regression line
-        ax.plot(X_all, y_fit, color='red', linewidth=2, label='Regression Line') 
+        ax.plot(X_all, y_fit, color='red', linewidth=2, label='Regression Line')
         
         ax.set_xlabel('Feature X')
         ax.set_ylabel('Target Y')
@@ -132,7 +136,7 @@ def main():
         new_x = st.slider("Select X value for prediction", 0, 100, 50)
         
         # Predict based on the slider value using the model from session state
-        prediction = st.session_state.model.predict(np.array([[new_x]]))[0][0]
+        prediction = st.session_state.model.predict(np.array([[new_x]]))[0]
         st.info(f"For X = **{new_x}**, the predicted Y value is **{prediction:.3f}**")
 
     else:
