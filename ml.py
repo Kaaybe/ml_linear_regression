@@ -17,7 +17,19 @@
 
 # Configure Git (CHANGE THESE TO YOUR INFO)
 !git config --global user.email "glo.wan.kih@gmail.com"
-!git config --global user.name "Kaaybe"
+
+import subprocess
+
+# Run the shell command using subprocess.
+# The command arguments must be passed as a list.
+try:
+    subprocess.run(['git', 'config', '--global', 'user.email', 'glo.wan.kih@gmail.com'], check=True)
+    # Optional: Add a check if the command succeeded
+    # print("Git config updated successfully.")
+except subprocess.CalledProcessError as e:
+    print(f"Error running git command: {e}")
+except FileNotFoundError:
+    print("Error: 'git' command not found.")
 ```
 
 ### Cell 2: Create Streamlit App File
