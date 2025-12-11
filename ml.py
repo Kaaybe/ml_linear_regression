@@ -74,8 +74,12 @@ def main():
         mse = mean_squared_error(y_test, y_pred)
         r2 = r2_score(y_test, y_pred)
         
-        st.success("Model Training Complete!")
-        
+        if st.button("Train Linear Regression Model"):
+    # ... Training and Evaluation code is here ...
+    model = train_model(X_train, y_train)
+
+    col1.metric("Model Slope (Coefficient)", f"{model.coef_[0][0]:.3f}")
+    
         col1, col2, col3 = st.columns(3)
         col1.metric("Model Slope (Coefficient)", f"{model.coef_[0][0]:.3f}")
         col2.metric("Mean Squared Error (MSE)", f"{mse:.3f}")
